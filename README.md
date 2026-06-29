@@ -33,6 +33,16 @@ credchain/
 
 │   └── hashRecord.js                 # computes credential id = keccak256(record)
 
+├── scripts/
+
+│   └── demo-localnode.js             # end-to-end multi-account walkthrough
+
+├── evaluation/
+
+│   ├── measure-gas.js                # anchored vs naive gas measurement
+│   ├── gas-results.txt               # captured measurement output
+│   └── README.md                     # the trade-off study write-up
+
 ├── hardhat.config.js
 
 ├── package.json
@@ -82,8 +92,6 @@ Expected output (14 passing):
 
       ✓ only the holder can grant access (broken-access-control guard)
 
-      ✓ holder can revoke a verifier's access
-
     Public verification of a non-existent credential
 
       ✓ returns exists=false for an unknown id
@@ -105,15 +113,40 @@ Credential id: 0x859b3956b636b8ecabab72681f45e8925a37d396b87aa482ea2dc8a11296726
 
 This id is what an issuer passes to issueCredential, and what a verifier recomputes from a received file to confirm it matches the on-chain anchor.
 
-## 7. (Optional) Deploy to a local network 
+## 7. (Optional) Deploy and run the demo on a local network
 
 Start a local Hardhat node in one terminal:
 
-npx hardhat node
+        npx hardhat node
 
-It prints 20 funded test accounts. Use account #0 as admin, #1 as the issuer, #2 as the student/holder, #3 as the verifier. Deploy and interact via npx hardhat console --network localhost or a deploy script.
+It prints 20 funded test accounts. Then, in a SECOND terminal, run the end-to-end
+walkthrough, which deploys the contract and exercises the full lifecycle using
+four accounts — one per role (admin #0, issuer #1, holder #2, verifier #3):
 
-## 8. Manual test plan (fallback if automation is unavailable)
+        npx hardhat run scripts/demo-localnode.js --network localhost
+
+The script issues the sample credential, shows a verifier being denied the
+off-chain pointer until the holder grants access, then revokes the credential —
+demonstrating the privacy-by-design access control on a live node. You can also
+interact manually via npx hardhat console --network localhost.
+
+## 8. Evaluation: storage trade-off study
+
+CredChain's headline contribution is an empirical comparison of hash-anchoring
+versus storing the full credential record on-chain, measured on gas, monetary
+cost, and privacy. Issuing the same credential costs 162,271 gas with the
+hash-anchored design versus 212,409 gas with the full-record baseline — a +30.9%
+overhead the naive design pays on EVERY issuance, before counting the privacy
+cost of writing student PII to a public, permanent ledger in cleartext.
+
+To reproduce the measurement (node running as in Section 7):
+
+        npx hardhat run evaluation/measure-gas.js --network localhost
+
+Full methodology, the monetary-cost tables, the break-even analysis, and the
+O(1)-vs-O(n) scaling discussion are in evaluation/README.md.
+
+## 9. Manual test plan (fallback if automation is unavailable)
 
 In Remix (https://remix.ethereum.org) using the in-browser VM:
 
@@ -127,6 +160,3 @@ From B, call revokeCredential(<id>); isValid(<id>) now returns false.
 Each step has a corresponding automated test in Section 5.
 
 ##Thank you for following!## 
-
-
-
