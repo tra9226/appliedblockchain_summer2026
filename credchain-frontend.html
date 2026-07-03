@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CredChain — Testnet Demo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+<style>
+  :root { --ink:#1a1a2e; --line:#d9d9e3; --bg:#f6f6fb; --accent:#534ab7; --good:#0f6e56; --bad:#993c1d; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; margin:0; background:var(--bg); color:var(--ink); line-height:1.45; }
+  header { background:var(--accent); color:#fff; padding:16px 24px; }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:4px 0 0; font-size:13px; opacity:.9; }
+  main { max-width:920px; margin:0 auto; padding:20px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:16px; }
+  .card h2 { margin:0 0 10px; font-size:15px; }
+  .role { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); font-weight:700; }
+  label { display:block; font-size:12px; color:#555; margin:8px 0 3px; }
+  input { width:100%; padding:8px; border:1px solid var(--line); border-radius:6px; font-family:ui-monospace,monospace; font-size:12px; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; margin-top:10px; }
+  button:hover { opacity:.9; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  button.ghost { background:#ecebf7; color:var(--accent); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:220px; }
+  #wallet { font-family:ui-monospace,monospace; font-size:12px; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
+  .pill.ok { background:#e1f5ee; color:var(--good); }
+  .pill.warn { background:#faece7; color:var(--bad); }
+  #log { background:#12122a; color:#d7d7f2; border-radius:8px; padding:12px; font-family:ui-monospace,monospace; font-size:12px; max-height:260px; overflow:auto; white-space:pre-wrap; }
+  #log a { color:#9fbcff; }
+  .state { font-family:ui-monospace,monospace; font-size:12px; background:#f0f0f7; border-radius:6px; padding:10px; white-space:pre-wrap; }
+  small.hint { color:#777; font-size:11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CredChain — Academic Credential Registry</h1>
+  <p>Sepolia testnet demo · hash-anchored diplomas · four roles: admin · issuer · holder · verifier</p>
+</header>
+
+<main>
+  <!-- CONNECTION -->
+  <div class="card">
+    <h2>1 · Connection</h2>
+    <label>Deployed contract address (paste from your deploy step)</label>
+    <input id="contractAddr" placeholder="0x..." />
+    <div class="row" style="margin-top:6px;">
+      <div>
+        <button id="connectBtn">Connect MetaMask</button>
+        <button id="refreshBtn" class="ghost" disabled>Refresh state</button>
+      </div>
+    </div>
+    <p id="wallet" style="margin-top:10px;">Not connected.</p>
+    <small class="hint">Switch the active account in MetaMask to play each role. Whatever account is
+    active is the <code>msg.sender</code> for the next action.</small>
+  </div>
+
+  <!-- SHARED CREDENTIAL ID -->
+  <div class="card">
+    <h2>Credential ID (the on-chain anchor)</h2>
+    <label>keccak256 of the off-chain record — get it from <code>npm run hash</code></label>
+    <input id="credId" value="0x859b3956b636b8ecabab72681f45e8925a37d396b87aa482ea2dc8a112967269" />
+    <small class="hint">Pre-filled with Jane's credential id. If you changed credential-jane.json, re-run
+    <code>npm run hash</code> and paste the new id here.</small>
+  </div>
+
+  <!-- STEP 1: ADMIN -->
+  <div class="card">
+    <span class="role">Admin / Registrar</span>
+    <h2>2 · Authorize a university (issuer)</h2>
+    <div class="row">
+      <div>
+        <label>Issuer (university) address</label>
+        <input id="issuerAddr" placeholder="0x... (a MetaMask account you control)" />
+      </div>
+      <div>
+        <label>Institution name</label>
+        <input id="issuerName" value="University of Toronto" />
+      </div>
+    </div>
+    <button data-tx="addIssuer">addIssuer()</button>
+  </div>
+
+  <!-- STEP 2: ISSUER -->
+  <div class="card">
+    <span class="role">Issuer / University</span>
+    <h2>3 · Issue a diploma to a student</h2>
+    <div class="row">
+      <div>
+        <label>Holder (student) address</label>
+        <input id="holderAddr" placeholder="0x..." />
+      </div>
+      <div>
+        <label>Metadata pointer (off-chain record)</label>
+        <input id="metaUri" value="ipfs://bafkreigh2akiscaildc...example" />
+      </div>
+    </div>
+    <button data-tx="issueCredential">issueCredential()</button>
+    <small class="hint">Switch MetaMask to the university account before clicking.</small>
+  </div>
+
+  <!-- STEP 3: HOLDER -->
+  <div class="card">
+    <span class="role">Holder / Student</span>
+    <h2>4 · Grant an employer permission to view</h2>
+    <label>Verifier (employer) address</label>
+    <input id="verifierAddr" placeholder="0x..." />
+    <button data-tx="grantAccess">grantAccess()</button>
+    <small class="hint">Switch MetaMask to the student account first.</small>
+  </div>
+
+  <!-- STEP 4: VERIFIER -->
+  <div class="card">
+    <span class="role">Verifier / Employer</span>
+    <h2>5 · Read the metadata pointer (access-gated)</h2>
+    <button data-call="getMetadataURI" class="ghost">getMetadataURI()</button>
+    <small class="hint">Switch to the employer account. Before step 4 this reverts "Access denied";
+    after step 4 it returns the pointer. This is the privacy control in action.</small>
+  </div>
+
+  <!-- OPTIONAL: REVOKE -->
+  <div class="card">
+    <span class="role">Issuer / University</span>
+    <h2>6 · (Optional) Revoke the credential</h2>
+    <button data-tx="revokeCredential">revokeCredential()</button>
+    <small class="hint">Switch back to the university account. Flips status to Revoked.</small>
+  </div>
+
+  <!-- STATE -->
+  <div class="card">
+    <h2>Live on-chain state</h2>
+    <div id="state" class="state">Connect and click "Refresh state".</div>
+  </div>
+
+  <!-- LOG -->
+  <div class="card">
+    <h2>Transaction log (with Etherscan links)</h2>
+    <div id="log">Actions and transaction hashes appear here.</div>
+  </div>
+</main>
+
+<script>
+// ---- Exact ABI for CredentialRegistry (human-readable form) ----
+const ABI = [
+  "function admin() view returns (address)",
+  "function isIssuer(address) view returns (bool)",
+  "function issuerName(address) view returns (string)",
+  "function addIssuer(address issuer, string name)",
+  "function removeIssuer(address issuer)",
+  "function issueCredential(bytes32 id, address holder, string metadataURI)",
+  "function revokeCredential(bytes32 id)",
+  "function grantAccess(bytes32 id, address verifier)",
+  "function revokeAccess(bytes32 id, address verifier)",
+  "function verifyCredential(bytes32 id) view returns (bool exists, address issuer, address holder, uint8 status, uint64 issuedAt, uint64 updatedAt)",
+  "function getMetadataURI(bytes32 id) view returns (string)",
+  "function hasAccess(bytes32 id, address verifier) view returns (bool)",
+  "function isValid(bytes32 id) view returns (bool)"
+];
+const SEPOLIA = 11155111n;
+const STATUS = ["None", "Active", "Revoked"];
+
+let provider, signer, account;
+
+const $ = (id) => document.getElementById(id);
+function log(msg) {
+  const el = $("log");
+  el.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}\n` + el.innerHTML;
+}
+function txLink(hash) {
+  return `<a href="https://sepolia.etherscan.io/tx/${hash}" target="_blank">${hash.slice(0,18)}…</a>`;
+}
+function addr() {
+  const a = $("contractAddr").value.trim();
+  if (!ethers.isAddress(a)) throw new Error("Enter a valid deployed contract address first.");
+  return a;
+}
+function contract(withSigner) {
+  return new ethers.Contract(addr(), ABI, withSigner ? signer : provider);
+}
+
+async function connect() {
+  if (!window.ethereum) { alert("MetaMask not detected. Install it and reload."); return; }
+  provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send("eth_requestAccounts", []);
+  signer = await provider.getSigner();
+  account = await signer.getAddress();
+  const net = await provider.getNetwork();
+  const ok = net.chainId === SEPOLIA;
+  $("wallet").innerHTML =
+    `Active account: <b>${account}</b> · Network: ` +
+    (ok ? `<span class="pill ok">Sepolia</span>`
+        : `<span class="pill warn">wrong network (chainId ${net.chainId})</span> — switch to Sepolia`);
+  $("refreshBtn").disabled = false;
+  log(`Connected as ${account.slice(0,10)}…`);
+}
+
+// re-read the signer whenever the user switches accounts in MetaMask
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", () => connect());
+  window.ethereum.on("chainChanged", () => connect());
+}
+
+async function sendTx(fn) {
+  try {
+    const c = contract(true);
+    const id = $("credId").value.trim();
+    let tx;
+    if (fn === "addIssuer") tx = await c.addIssuer($("issuerAddr").value.trim(), $("issuerName").value.trim());
+    else if (fn === "issueCredential") tx = await c.issueCredential(id, $("holderAddr").value.trim(), $("metaUri").value.trim());
+    else if (fn === "grantAccess") tx = await c.grantAccess(id, $("verifierAddr").value.trim());
+    else if (fn === "revokeCredential") tx = await c.revokeCredential(id);
+    log(`${fn}() sent → ${txLink(tx.hash)} (waiting for confirmation…)`);
+    const r = await tx.wait();
+    log(`✓ ${fn}() confirmed in block ${r.blockNumber} · gas ${r.gasUsed}`);
+    await refresh();
+  } catch (e) {
+    log(`✗ ${fn}() failed: ${(e.reason || e.shortMessage || e.message)}`);
+  }
+}
+
+async function readCall(fn) {
+  try {
+    const c = contract(true); // signer, so msg.sender is the active account (matters for access gating)
+    const id = $("credId").value.trim();
+    if (fn === "getMetadataURI") {
+      const uri = await c.getMetadataURI(id);
+      log(`✓ getMetadataURI() → "${uri}" (access granted to ${account.slice(0,10)}…)`);
+    }
+  } catch (e) {
+    log(`✗ getMetadataURI() reverted: ${(e.reason || e.shortMessage || e.message)} — expected before access is granted`);
+  }
+}
+
+async function refresh() {
+  try {
+    const c = contract(false);
+    const id = $("credId").value.trim();
+    const v = await c.verifyCredential(id);
+    const valid = await c.isValid(id);
+    let out = "";
+    out += `admin():           ${await c.admin()}\n`;
+    out += `credential id:     ${id.slice(0,20)}…\n`;
+    out += `exists:            ${v.exists}\n`;
+    out += `issuer:            ${v.issuer}\n`;
+    out += `holder:            ${v.holder}\n`;
+    out += `status:            ${STATUS[Number(v.status)]} (${v.status})\n`;
+    out += `isValid():         ${valid}\n`;
+    if (ethers.isAddress($("verifierAddr").value.trim())) {
+      out += `employer hasAccess: ${await c.hasAccess(id, $("verifierAddr").value.trim())}\n`;
+    }
+    $("state").textContent = out;
+  } catch (e) {
+    $("state").textContent = "Could not read state: " + (e.shortMessage || e.message);
+  }
+}
+
+$("connectBtn").onclick = connect;
+$("refreshBtn").onclick = refresh;
+document.querySelectorAll("[data-tx]").forEach((b) => b.onclick = () => sendTx(b.dataset.tx));
+document.querySelectorAll("[data-call]").forEach((b) => b.onclick = () => readCall(b.dataset.call));
+</script>
+</body>
+</html>
