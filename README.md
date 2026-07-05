@@ -2,6 +2,17 @@
 
 ### A proof-of-concept system for issuing and verifying academic credentials (diplomas, transcripts) on an Ethereum-compatible blockchain. Only a keccak256 anchor and minimal status metadata are stored on-chain; the full credential record stays off-chain. This README lets you reproduce the build, the tests, and the demo from a clean machine.
 
+## Live deployment & demo
+
+- **Network:** Ethereum Sepolia public testnet (chainId 11155111)
+- **Deployed contract:** `0xC45b2a1cDd177Fb0b53F51066522648a94c96c9D`
+- **View on Etherscan:** https://sepolia.etherscan.io/address/0xC45b2a1cDd177Fb0b53F51066522648a94c96c9D
+  - Transactions (issue, grant, revoke): https://sepolia.etherscan.io/address/0xC45b2a1cDd177Fb0b53F51066522648a94c96c9D
+  - Emitted events (CredentialIssued, AccessGranted, CredentialRevoked): https://sepolia.etherscan.io/address/0xC45b2a1cDd177Fb0b53F51066522648a94c96c9D#events
+- **Demo video (NYU Stream):** https://stream.nyu.edu/media/1_i3k8917h
+
+The demo walks through the full lifecycle on the live testnet: the admin authorizes a university, the university issues a diploma to a student, an employer is denied the private record, the student grants the employer access, the employer then reads the record, and finally the university revokes the credential — every step recorded as a real, permanent transaction on Sepolia.
+
 ## 1. Prerequisites
 Node.js 18 or newer (developed on Node 22). Check with node --version.
 npm (ships with Node).
@@ -35,13 +46,17 @@ credchain/
 
 ├── scripts/
 
-│   └── demo-localnode.js             # end-to-end multi-account walkthrough
+│   ├── demo-localnode.js             # end-to-end multi-account walkthrough (local)
+
+│   └── deploy.js                     # deploys CredentialRegistry to any network
 
 ├── evaluation/
 
 │   ├── measure-gas.js                # anchored vs naive gas measurement
 │   ├── gas-results.txt               # captured measurement output
 │   └── README.md                     # the trade-off study write-up
+
+├── credchain-frontend.html           # minimal MetaMask front end for the testnet demo
 
 ├── hardhat.config.js
 
@@ -130,7 +145,36 @@ off-chain pointer until the holder grants access, then revokes the credential �
 demonstrating the privacy-by-design access control on a live node. You can also
 interact manually via npx hardhat console --network localhost.
 
-## 8. Evaluation: storage trade-off study
+## 8. Deploy and demo on a public testnet (Sepolia)
+
+This reproduces the live deployment linked at the top of this README.
+
+1. Create a `.env` file in the project root with your own values (never commit it — it is gitignored):
+
+        SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+        PRIVATE_KEY=your_funded_sepolia_account_private_key
+        ETHERSCAN_API_KEY=optional_for_source_verification
+
+   Get a free Sepolia RPC URL from Alchemy or Infura, and fund a throwaway account
+   with test ETH from a faucet (e.g. https://cloud.google.com/application/web3/faucet/ethereum/sepolia).
+
+2. Deploy the contract to Sepolia:
+
+        npx hardhat run scripts/deploy.js --network sepolia
+
+   It prints the deployed contract address and an Etherscan link.
+
+3. Open the front end. Serve it over http and open it in a browser with MetaMask:
+
+        cd . && python3 -m http.server 8080
+        # then browse to http://localhost:8080/credchain-frontend.html
+
+4. Paste the deployed contract address into the front end, connect MetaMask (on
+   Sepolia), and walk through the five steps: authorize issuer → issue credential →
+   employer denied → holder grants access → employer reads the record → (optional)
+   revoke. Each write is a real Sepolia transaction, viewable on Etherscan.
+
+## 9. Evaluation: storage trade-off study
 
 CredChain's headline contribution is an empirical comparison of hash-anchoring
 versus storing the full credential record on-chain, measured on gas, monetary
@@ -146,7 +190,7 @@ To reproduce the measurement (node running as in Section 7):
 Full methodology, the monetary-cost tables, the break-even analysis, and the
 O(1)-vs-O(n) scaling discussion are in evaluation/README.md.
 
-## 9. Manual test plan (fallback if automation is unavailable)
+## 10. Manual test plan (fallback if automation is unavailable)
 
 In Remix (https://remix.ethereum.org) using the in-browser VM:
 
