@@ -1,0 +1,20 @@
+$ npx hardhat run evaluation/measure-gas-by-size.js
+==========================================================================
+CredChain record-size sweep: issuance gas vs credential record size
+Anchored = fixed 32-byte hash on-chain; Full-record = whole record on-chain
+==========================================================================
+courses | record bytes | anchored gas | full-record gas | naive / anchored
+--------------------------------------------------------------------------
+      1 |          229 |       162271 |          348281 |            2.15x
+      5 |          481 |       162271 |          529858 |            3.27x
+     10 |          797 |       162271 |          756854 |            4.66x
+     20 |         1437 |       162271 |         1210918 |            7.46x
+     40 |         2717 |       162271 |         2119053 |           13.06x
+==========================================================================
+CSV
+courses,record_bytes,anchored_gas,full_record_gas
+1,229,162271,348281
+5,481,162271,529858
+10,797,162271,756854
+20,1437,162271,1210918
+40,2717,162271,2119053
