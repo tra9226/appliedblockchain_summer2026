@@ -38,7 +38,7 @@ async function main() {
   const naive = await Naive.deploy();
   await naive.waitForDeployment();
   const naiveDeploy = (await naive.deploymentTransaction().wait()).gasUsed;
-  await (await naive.connect(admin).addIssuer(university.address)).wait();
+  await (await naive.connect(admin).addIssuer(university.address, "University of Toronto")).wait();
   // Map the same Jane record into the naive contract's six string fields.
   const record = {
     studentName: rec.holder.name,
@@ -49,7 +49,7 @@ async function main() {
     transcriptDigest: rec.credential.transcriptDigest,
   };
   const nRcpt = await (await naive.connect(university)
-    .issueCredential(id, student.address, record)).wait();
+    .issueCredential(id, student.address, META, record)).wait();
   const naiveIssue = nRcpt.gasUsed;
 
   // ---- Report ----

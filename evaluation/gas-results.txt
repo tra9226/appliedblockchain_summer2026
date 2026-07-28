@@ -7,15 +7,15 @@ Credential id: 0x859b3956b636b8ecabab72681f45e8925a37d396b87aa482ea2dc8a11296726
 
 ISSUANCE gas (the headline operation):
   Anchored (CredentialRegistry)      : 162271
-  Naive    (NaiveCredentialRegistry) : 212409
-  Extra gas for naive                : 50138
-  Naive overhead vs anchored         : +30.9%
-  Anchored as share of naive         : 76.4%
+  Naive    (NaiveCredentialRegistry) : 303298
+  Extra gas for naive                : 141027
+  Naive overhead vs anchored         : +86.9%
+  Anchored as share of naive         : 53.5%
 
 DEPLOYMENT gas (one-time, for completeness):
   Anchored : 1133614
-  Naive    : 846422
-  Delta    : -287192
+  Naive    : 1279859
+  Delta    : 146245
 ================================================================
 Note: the naive contract ALSO writes student name, program, GPA, and
 dates to the public chain in cleartext -- a privacy cost the gas number
