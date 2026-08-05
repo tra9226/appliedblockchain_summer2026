@@ -1,0 +1,275 @@
+% CredChain — formatted in the official INTCEC 2026 IEEE conference template.
+% Images (sys_1.png, sys_2.png) live in a PNG/ folder. References come from
+% Bibliography.bib via BibTeX (bibliographystyle IEEEtran).
+
+\documentclass[conference]{IEEEtran}
+
+% ---- Conference title-page footer (copyright notice) ---------------------
+\makeatletter
+\def\ps@IEEEtitlepagestyle{%
+  \def\@oddfoot{\mycopyrightnotice}%
+  \def\@evenfoot{}%
+}
+\def\mycopyrightnotice{%
+  {\footnotesize XXX-X-XXXX-XXXX-X/26/\$31.00~\copyright~2026 IEEE\hfill}% <-- change ID when assigned
+  \gdef\mycopyrightnotice{}%
+}
+\makeatother
+
+\IEEEoverridecommandlockouts
+% The line above is only needed to identify funding in the first footnote.
+% If unneeded, it can be commented out.
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{eso-pic}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+% ---- Conference banner in the top-right of the first page ----------------
+\newcommand\AtPageUpperMyright[1]{\AtPageUpperLeft{%
+ \put(\LenToUnit{0.17\paperwidth},\LenToUnit{-2cm}){%
+     \parbox{0.9\textwidth}{\raggedleft\fontsize{8}{11}\selectfont #1}}%
+ }}%
+\newcommand{\conf}[1]{%
+\AddToShipoutPictureBG*{%
+\AtPageUpperMyright{#1}
+}
+}
+
+\graphicspath{{PNG/}{./}}
+\usepackage[colorlinks=true, urlcolor=blue, linkcolor=black, citecolor=black]{hyperref}
+
+\begin{document}
+
+\title{\vspace*{1cm}CredChain: An Empirical Evaluation of On-Chain and Off-Chain Credential Storage}
+
+\author{\IEEEauthorblockN{Rea Tasneem Ara}
+\IEEEauthorblockA{\textit{Tandon School of Engineering} \\
+\textit{New York University}\\
+%New York, USA \\
+tra9226@nyu.edu}
+\and
+
+\IEEEauthorblockN{
+Zhixiong Chen\IEEEauthorrefmark{1}\IEEEauthorrefmark{2}
+}
+\IEEEauthorblockA{
+\IEEEauthorrefmark{1}\textit{Tandon School of Engineering} \\
+\textit{New York University},
+%New York, USA \\[2pt]
+\IEEEauthorrefmark{2}\textit{Mercy University} \\
+zxchen@ieee.org
+}
+\and
+\IEEEauthorblockN{Paul M. Torrens}
+\IEEEauthorblockA{\textit{Tandon School of Engineering} \\
+\textit{New York University}\\
+%New York, USA \\
+torrens@nyu.edu}
+}
+
+\maketitle
+\conf{\textit{ 6. Interdisciplinary Conference on Electronics and Computer (INTCEC 2026) \\
+24-25 September 2026, Chicago, USA}}
+
+\begin{abstract}
+ We introduce a solution to concerns about placing academic record and credential data directly on-chain: we propose and demonstrate a hash-anchored credential registry on an Ethereum-compatible network as a proof of concept and investigate application scenarios for academic diploma and GPA records. Our approach makes use of only a \texttt{keccak256} anchor on-chain, allowing the credential record to remain off-chain, with positive implications for privacy preservation of individuals' personal details. We show an operational prototype, stored locally, in which the storage layer can be replaced with an IPFS content identifier or another decentralized storage mechanism such as Web3 in future iterations. We describe an empirical assessment of the storage trade-off, combining the gas cost, monetary cost, and privacy exposure of hash anchoring (versus storing the full record on-chain). Our analysis shows that hash anchoring can reduce issuance gas by around 46\%, while simultaneously avoiding the storage of plain-text credential attributes on the public ledger. Our approach raises important operational factors to identify the conditions under which the blockchain is and is not an appropriate substrate for credential verification.
+\end{abstract}
+
+\begin{IEEEkeywords}
+blockchain, academic credentials, keccak256, hash anchoring, smart contracts, privacy, Ethereum, Sepolia
+\end{IEEEkeywords}
+
+\section{Problem Definition and Blockchain Fit}
+
+\subsection{Problem Statement}
+Credentials, such as academic qualifications, hold lifelong value, and they are vulnerable to manipulation attempts that, when widespread, erode their value to the holder and the issuer. Surprisingly, there is no centralized agency or standard for authenticating academic credentials, leaving the education community with four significant vulnerabilities. First, \emph{fraud and forgery} are easy, cheap, and pervasive \cite{slr_certificate,cheng_smartcontract}. Second, verification is \emph{operationally inefficient} involving a manual, slow and costly look-ups \cite{capece_trust}. Third, centralized institutional databases present a \emph{single failure surface} that is straightforwardly vulnerable across many axes: compromise, data loss, and insider manipulation \cite{slr_certificate,alhemairy_uae}. Fourth, graduates have \emph{little autonomy} in navigating this system despite academic credentials being lifelong tokens of accomplishment leading to inhibiting the mobility of paper credentials\cite{cheng_smartcontract,capece_trust}. Blockchain credential verification could heal some of these flaws by providing a verification substrate that is tamper-evident, independently checkable, and resilient to the issuer's continued existence. Here, we aim to provide the literary testing, examining computational costs while considering on-chain and off-chain solutions to mitigate privacy concerns.
+
+\subsection{User Roles}
+We model the system as a decentralized ecosystem of four actors. First, \emph{Students/Graduates (Holders)} fulfill academic requirements, use an Ethereum account, and are associated with the issued credential. They control disclosure, presenting a proof or granting a verifier access without necessarily exposing the raw record \cite{slr_certificate,berrios_zkbar}. Second, \emph{Higher-Education Institutions (Issuers)} verify student identity, detail academic outcomes, sign the resulting e-certificate, and manage revocation in cases of error or misconduct \cite{berrios_zkbar,cheng_smartcontract,rustemi_diar}. Third, \emph{Verifiers (Third Parties)}, as employers, recruiters, or other interested parties, query the ledger to authenticate a presented credential. They perform this query instantly, without an intermediary and without direct contact with the issuer \cite{cheng_smartcontract}. Fourth, \emph{Governing Bodies (Registrar/Regulator)} provide an accreditation root, attesting which institutions are authorized to issue academic credentials or licenses \cite{alhemairy_uae}. In our prototype, this role is implemented as the contract administrator, which allows issuers to anchor the chain of trust.
+
+%\subsection{Justification for Blockchain Properties}
+%Blockchain is suited to this problem for several technical reasons. \emph{Immutability} makes a recorded credential anchor permanent and tamper-evident \cite{cheng_smartcontract,capece_trust}.
+%A shared blockchain registry reduces reliance on each issuer's internal verification database and preserves the on-chain issuance and revocation history, even if the issuer's original system becomes unavailable
+%\cite{slr_certificate,rustemi_diar}. \emph{Transparency and traceability} give every issuance, signature, and revocation a timestamped, and auditable trail back to an authorized issuer \cite{cardenas_prototype,capece_trust}. \emph{Cryptographic security}, through hashing and digital signatures, makes any post-issuance alteration immediately detectable \cite{alhemairy_uae}. \emph{Smart contracts} automate verification logic, compressing a multi-day process into seconds \cite{slr_certificate}.
+
+%Finally, privacy is improved by keeping plaintext credential data off-chain and anchoring only a cryptographic commitment. In our prototype, the credential record is stored locally for implementation and evaluation. The storage layer can later be replaced by CID-addressed decentralized storage, such as IPFS, without changing the on-chain anchoring and verification logic. Zero-knowledge proofs and selective disclosure remain more advanced extensions that could be explored atop this framework.
+
+%We are, however, deliberate about where blockchain is not warranted. If a single issuer is fully and permanently trusted, a conventional signed database is cheaper and faster. Blockchain only justifies its cost when the goal is to remove the issuer as a single point of trust and failure. This is precisely the scenario that holds for cross-institutional, long-lived credential verification. Our thesis in this paper is that the cost can be made explicit rather than assumed away.
+
+\subsection{What This Paper Targets}
+Blockchain is suited to this problem for several technical reasons. \emph{Immutability} makes a recorded credential anchor permanent and tamper-evident \cite{cheng_smartcontract,capece_trust}. A shared blockchain registry reduces reliance on each issuer's internal verification database and preserves the on-chain issuance and revocation history, even if the issuer's original system becomes unavailable \cite{slr_certificate,rustemi_diar}. \emph{Transparency and traceability} give every issuance, signature, and revocation a timestamped, and auditable trail back to an authorized issuer \cite{cardenas_prototype,capece_trust}. \emph{Cryptographic security}, through hashing and digital signatures, makes any post-issuance alteration immediately detectable \cite{alhemairy_uae}. \emph{Smart contracts} automate verification logic, compressing a multi-day process into seconds \cite{slr_certificate}.
+
+Prior work largely surveys blockchain's suitability for credentialing~\cite{rustemi_diar}. Production efforts have already standardized how such credentials are expressed and exchanged such as the W3C Verifiable Credentials data model, Blockcerts, and EBSI~\cite{w3c_vcdm2,blockcerts_mit,tan_ebsi}, yet do not isolate or quantify the gas, cost, and privacy consequences of where the credential records live. This paper measures the gas, cost, and privacy tradeoff between anchoring credentials by their hash and storing the full credential record on-chain based on four roles described under the \emph{User Roles} section. 
+
+This paper includes a Solidity proof-of-concept  with a reproducible test suite covering the full lifecycle and adversarial cases, an empirical evaluation, and a scoped discussion of limitations and future work across the Systems Design, Security and Privacy sections. Additionally, we note that all reported measurements use locally stored off-chain records so that the evaluation isolates the blockchain storage tradeoff. Decentralized-storage upload, retrieval, availability, and latency are outside the scope of the present evaluation. GitHub Repository for implementation can be found here: \href{https://github.com/tra9226/appliedblockchain_summer2026}{github.com/tra9226/appliedblockchain\_summer2026}.
+
+\section{System Design and Workflow}
+
+%%FIGURE 1
+\begin{figure}[t]
+\centering
+\textbf{Credential Verification Workflow}\par\vspace{2pt}
+\includegraphics[width=\columnwidth]{sys_1.png}
+\caption{The administrator authorizes an issuer (1); the issuer anchors a credential on-chain (2); the holder grants a verifier access to the record (3); and the verifier checks on-chain status and rehashes the locally stored off-chain record to confirm its integrity (4). Only a \texttt{keccak256} hash anchor and minimal status metadata are stored on-chain, while the full record remains off-chain.}
+\label{fig:workflow}
+\end{figure}
+
+%%FIGURE 2
+\begin{figure}[t]
+\centering
+\textbf{End to End System Architecture}\par\vspace{2pt}
+\includegraphics[width=\columnwidth]{sys_2.png}
+\caption{Four actor wallets admin, issuer, holder, and verifier interact with the CredentialRegistry smart contract deployed on an Ethereum-compatible network. Each on-chain anchor is bound to its off-chain JSON record and PDF by a \texttt{keccak256} hash, so authenticity and status are verifiable on-chain while personal data remains off the ledger.}
+\label{fig:arch}
+\end{figure}
+
+\subsection{Architecture}
+The system is a three-layer design (Fig.~\ref{fig:arch}). At the top, four actors hold Ethereum accounts and interact with the registry through their wallets. The middle layer is a single smart contract, CredentialRegistry, deployed on an Ethereum-compatible network. The contract holds all trust state, including which issuers are authorized, the credential anchors, and the holder-granted access flags.
+
+The bottom layer is off-chain and comprises the full credential record in JSON format and its PDF rendering, neither of which is written to the blockchain. The two layers are bound by a \verb|keccak256| commitment computed from the standardized JSON record, so that any later modification can be detected by rehashing and comparing the result with the on-chain anchor. In the current prototype, the JSON record and PDF are stored locally. The local storage reference can later be replaced with an IPFS CID or another decentralized storage reference without changing the core anchoring and verification logic.
+
+\subsection{Workflow}
+The credential lifecycle (Fig.~\ref{fig:workflow}) runs in five steps. First, the administrator authorizes a university by recording its address in the issuer registry. Second, the issuer computes $\mathit{id}=\mathrm{keccak256}(\mathit{record})$ off-chain and calls \texttt{issueCredential(id, holder, metadataURI)}, writing the anchor and emitting a \texttt{CredentialIssued} event. Third, when a student or graduate wants to present the credential, the holder calls \texttt{grantAccess(id, verifier)} to authorize a specific employer. Fourth, the verifier calls \texttt{verifyCredential(id)} to read the issuer, holder, status, and timestamps, then rehashes the off-chain file it received and confirms that the hash matches the anchor. Fifth, if a credential is issued in error or rescinded, the issuing university calls \texttt{revokeCredential(id)}, flipping the status flag. In this case, verifiers see the change immediately on their next lookup.
+
+\subsection{Data model}
+The off-chain record is a versioned JSON document (schema \texttt{credchain.diploma.v1}) containing the issuer block (name, DID, wallet), the holder block (name, student ID, wallet), the credential block (program, honors, GPA, conferral date, transcript digest), and a random nonce. The nonce matters. Without it, a record built only from public fields could be hash-guessed by an adversary, so it adds entropy to the commitment. The on-chain counterpart stores the anchor and metadata needed to establish issuer authorization, holder association, and credential status, as summarized in Table~\ref{tab:onchain}.
+
+%%TABLE I
+\begin{table}[t]
+\caption{On-Chain Fields Stored per Credential}
+\label{tab:onchain}
+\centering
+\begin{tabular}{lll}
+\hline
+\textbf{Field} & \textbf{Type} & \textbf{Purpose}\\
+\hline
+issuer & address & which authorized university issued it\\
+holder & address & the owning student\\
+issuedAt/updatedAt & uint64 & issuance / last-status-change time\\
+status & enum & \{None, Active, Revoked\}\\
+metadataURI & string & Off-chain record reference (local/CID)\\
+\hline
+\end{tabular}
+\end{table}
+
+The contract keys credentials by the \texttt{bytes32} id in a \texttt{credentials} mapping, tracks authorized issuers in \texttt{isIssuer}/\texttt{issuerName}, and holds disclosure flags in a nested \texttt{accessGranted[id][verifier]} mapping.
+
+\subsection{Role permissions.}
+Authorization is enforced by modifiers (\texttt{onlyAdmin}, \texttt{onlyIssuer}) and explicit ownership checks inside each function (Table~\ref{tab:roles}) where the asymmetry is deliberate. \emph{Authenticity and Status are public}
+(anyone can verify that a credential exists, was issued by an authorized institution, and remains active), but the contract restricts retrieval of the record reference through its application interface to the holder, issuer, or an authorized verifier.
+
+%%TABLE II
+\begin{table}[htbp]
+\caption{Role Permissions}
+\label{tab:roles}
+\begin{center}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Function} & \textbf{Admin} & \textbf{Issuer} & \textbf{Holder} & \textbf{Verifier} \\
+\hline
+add/removeIssuer & \checkmark & NA & NA & NA\\
+\hline
+issueCredential & NA & \checkmark$^{\mathrm{a}}$ & NA & NA\\
+\hline
+revokeCredential & NA & \checkmark$^{\mathrm{b}}$ & NA & NA\\
+\hline
+grant/revokeAccess & NA & NA & \checkmark & NA\\
+\hline
+getMetadataURI & NA & \checkmark$^{\mathrm{b}}$ & \checkmark & \checkmark$^{\mathrm{c}}$\\
+\hline
+verify/isValid & \multicolumn{4}{c|}{public (anyone)}\\
+\hline
+\multicolumn{5}{l}{\footnotesize $^{\mathrm{a}}$if authorized \quad $^{\mathrm{b}}$issuing issuer only \quad $^{\mathrm{c}}$if granted}
+\end{tabular}
+\end{center}
+{\footnotesize A checkmark denotes a permitted call, with conditions given in the footnotes; NA denotes a call the role cannot make.}
+\end{table}
+
+\subsection{Design boundary}
+On-chain, the system handles issuer authorization, hash anchoring, the active/revoked credential lifecycle, holder-controlled authorization flags, and a tamper-evident event log. Off-chain, it handles local storage of the credential JSON and PDF, canonical hashing, and client-side verification by rehashing. Some additional features could include zero-knowledge selective disclosure \cite{khadka2026poster}, DID method resolution \cite{garzon2024did}, IPFS storage and availability guarantees \cite{puneetha2024performance}, regulator multi-signature accreditation, encryption and key distribution, and key-loss recovery. These are out of scope for this paper but we acknowledge the development potential. The on-chain access flag records authorization intent, but the off-chain application must enforce access to the record, and the blockchain cannot retract a file that a verifier has already received.
+
+\section{Smart Contract Implementation}
+
+\subsection{Issuer management}
+Only the administrator can change the set of authorized issuers. To achieve this, \texttt{addIssuer} rejects the zero address, requires a non-empty institution name, and refuses to re-add an existing issuer. Meanwhile, \texttt{removeIssuer} clears both the flag and the stored name. Each action emits an event so the issuer registry has a complete, auditable history.
+
+\subsection{Credential lifecycle}
+Issuance is restricted to authorized issuers via \texttt{onlyIssuer}. The function validates inputs and, critically, requires \texttt{status == None} so that a credential ID can never be silently overwritten. This guards against duplicate or replay issuance. We further restrict revocation. The \emph{issuing} issuer (not just any issuer) is enforced by the \texttt{c.issuer == msg.sender} check. Status is stored as an enum, and timestamps are recorded for the audit trail.
+
+\subsection{Holder-controlled access}
+The holder controls disclosure authorization through \verb|grantAccess| and \verb|revokeAccess|. Both functions require the caller to be the credential holder, ensuring that only the student/graduate can authorize a verifier. (And this returns some agency to the credential holder.) In the current prototype, the application checks this authorization before providing access to the locally stored credential record. The on-chain access flag records and enforces application-level authorization, but it does not by itself make an on-chain storage value confidential. A future implementation could use the same authorization mechanism with encrypted, CID-addressed storage, and controlled key distribution.
+
+\subsection{Verification views and events}
+Public verification needs no permissions: \texttt{verifyCredential} returns whether the credential exists, who issued it, who holds it, its status, and its timestamps, while \texttt{isValid} is a convenience boolean; and \texttt{hasAccess} lets a verifier check its own authorization.
+Because these are view functions, they incur no blockchain transaction fee when called through an RPC interface. The contract emits six events for every state change (issuer added/removed, credential issued/revoked, access granted/revoked), providing an external audit log for external indexer and block explorer.
+
+\section{Data, Storage, and Verification}
+\subsection{Off-Chain Storage and Retrieval}
+Again, we mention that the credential JSON and PDF are stored locally \emph{outside} the blockchain. The \verb|metadataURI| field serves as the application-level reference to the off-chain record, and the application checks the holder's authorization before releasing it to a verifier. Keeping the full record off-chain avoids placing plaintext academic attributes on the public ledger.
+
+The local storage reference can later be replaced with an IPFS CID or another decentralized storage reference without changing the core smart contract anchoring logic. Encryption, CID-based retrieval, pinning, availability, and key distribution are not implemented or evaluated in the present prototype and remain targets for future work.
+
+\subsection{Credential Integrity and Verification}
+The issuer computes a \verb|keccak256| hash of the canonical credential record and stores the resulting anchor on-chain. During verification, the verifier loads the local record, applies the same standardization procedure, recomputes the hash, and compares it with the on-chain anchor. A match confirms that the record has not changed since issuance.
+The local storage layer can later be replaced by IPFS-backed storage, with the returned CID serving as the pointer to the stored object. In that extension, the CID would protect the integrity of the stored object, while the on-chain \verb|keccak256| anchor would continue to protect the integrity of the underlying credential record. Implementing and evaluating decentralized storage would provide promising avenues for future work.
+
+\subsection{Issuer authenticity via transaction signatures}
+CredChain does not implement a separate application-layer signature scheme over the credential record. Instead, it relies on the digital signature intrinsic to every Ethereum transaction. Each call to \texttt{issueCredential} is a state-changing transaction the issuing institution must sign with its private key, and the EVM verifies this ECDSA signature over the \verb|secp256k1| curve before the call is admitted. The contract reads the recovered signer as \texttt{msg.sender} and gates issuance through \texttt{onlyIssuer}, which requires \texttt{isIssuer[msg.sender]} to be true. Because that flag can only be set by the administrator through \texttt{addIssuer}, the anchoring of a credential is cryptographically bound to a specific, administrator-authorized institutional key. As a consequence, an adversary cannot forge an issuance without the corresponding private key, and an unauthorized key is rejected even if the signature is valid. Indeed, this property is directly exercised by the ``unauthorized account cannot issue (fake issuer threat)'' test.
+
+\subsection{Design rationale}
+A common alternative is to have the issuer sign the credential payload itself (e.g., an EIP-712 typed-data signature recovered on-chain via \texttt{ecrecover}). We judged this as redundant for our threat model. The two guarantees such a scheme would provide are already supplied: the \emph{integrity} of the off-chain record is established by the \verb|keccak256| anchor (any modification changes the credential ID and breaks the match), and the \emph{authenticity} of the issuing party is established by the transaction signature and allow-list check. Together, these bind an authorized issuer to one specific, tamper-evident record hash. This is precisely the assurance a verifier needs. We note the boundary of this choice: the transaction signature authenticates the \emph{act of anchoring} a given credential ID, not a standalone signature that can be checked offline without consulting the chain. For a registry whose canonical source of truth is the on-chain anchor, that boundary is acceptable. A system requiring portable, offline-verifiable credentials would add payload-level signatures, which we identify as a next step to pursue.
+
+\section{Testing and Reproducibility}
+
+The implementation is validated by an automated suite of 14 Mocha/Chai tests executed with Hardhat against a local EVM, all passing. The suite is organized around the trust model rather than around functions, so each adversarial case maps to a specific security property. Issuer-management tests confirm that the administrator can authorize and remove issuers, whereas a non-administrator cannot. Issuance tests confirm that an authorized issuer can issue, that an \emph{unauthorized} account cannot (the fake-issuer threat), and that the same credential ID cannot be issued twice (replay/duplicate). Revocation tests confirm that the issuing issuer can revoke, that a \emph{different} issuer cannot revoke someone else's credential, and that an already-revoked credential cannot be revoked again.
+
+Access-control tests confirm the holder-controlled authorization flow: a verifier without access is denied access to the metadata reference via the contract interface. The holder can grant access, and after this the verifier can retrieve it, but again only the holder can grant that access (and may also revoke it). A final test confirms that verification of an unknown ID returns \texttt{exists = false}. Each negative test demonstrates a mitigation rather than assuming it, so the security analysis in Section~\ref{sec:security} is backed by executable evidence.
+
+The off-chain $\rightarrow$ on-chain link is independently reproducible. Running \texttt{node offchain/hashRecord.js}
+recomputes the credential identifier as $\mathrm{keccak256}$ from the standardized sample record, yielding \texttt{0x859b3956\ldots967269}, which is exactly the ID an issuer passes to \texttt{issueCredential} and a verifier recomputes to confirm a match. Beyond local testing, the contract was deployed to the public Ethereum \emph{Sepolia} testnet (chainId 11155111) at address \texttt{0xC45b2a1cDd177Fb0b\allowbreak 53F51066522648a94c96c9D}, and the complete lifecycle (authorize issuer, issue, deny an unauthorized verifier, grant access, read, and revoke) was exercised end-to-end through a browser front end with four distinct wallets, one per role. Every state-changing call is a real, timestamped transaction, and the emitted \texttt{CredentialIssued}, \texttt{AccessGranted}, and \texttt{CredentialRevoked} events are visible on the public block explorer, confirming that the system behaves identically on a real network. Full reproduction steps, from a clean clone through compilation, tests, the hash check, local-node demo, and the Sepolia deployment, are documented in the project README on our repo.
+The test suite and Sepolia demonstration use locally stored off-chain records; CID-based decentralized storage is not implemented or tested in the present prototype.
+
+\section{Evaluation and Trade-Off Discussion}
+
+The central design decision in CredChain is where the credential record lives: either anchored off-chain by hash or stored in full on-chain. To evaluate this empirically rather than assert it, we implemented both designs, CredentialRegistry (hash-anchored) and NaiveCredentialRegistry (full record on-chain), and measured the same operation, issuance of the identical Jane credential, on each. The baseline is feature identical to the anchored contract with the same issuer authorization, status lifecycle, timestamps, events, and holder-controlled access. The two differ in storage strategy where the baseline writes the full record on chain whereas the anchored design stores only the \texttt{keccak256} hash. The measurement harness deploys both contracts, issues the same record on a local Hardhat node, and reports the real \texttt{gasUsed} values from the transaction receipts and the captured output is committed for reproducibility. The credential ID is recomputed from the off-chain JSON at runtime, so both designs anchor provably the same record. The present evaluation measures the blockchain storage trade-off using locally stored off-chain records. It does not evaluate decentralized storage upload costs, retrieval latency, or availability.
+
+\subsection{Gas and monetary cost}
+Issuing one credential costs 162,271 gas under the hash-anchored design versus 303,298 gas under the full-record baseline, a reduction of 141,027 gas, or approximately 46.5\%, a promising result. At illustrative network conditions of 30 gwei and an ETH price of \$2,500, these values correspond to approximately \$12.17 and \$22.75 per issuance, respectively. These monetary values are illustrative, and gas usage is the primary comparison. Because on-chain verification uses only view calls that incur no transaction fee, this one-time issuance cost stands in for the recurring manual-verification fee noted earlier: at an illustrative \$3.48 per manual check, the \$12.17 anchored issuance is recovered after roughly four verifications, and every verification thereafter is effectively free, making the lifetime cost explicit rather than assumed. The gas counts are, moreover, independent of the execution layer even though the dollar figures are not---the same 162,271 gas settles for a substantially smaller fee on Ethereum layer-2 rollups than at the mainnet conditions assumed here, which would push the break-even lower still. We do not measure layer-2 fees directly and leave that validation to future work. Deployment gas is a controlled comparison because the contracts are feature-identical except for record storage. The anchored design uses 1,133,614 gas to deploy versus 1,279,859 gas for the full-record baseline, an 11.4\% reduction in one-time deployment gas.
+
+\subsection{Scalability}
+By design, hash-anchored issuance stores a fixed-size 32-byte digest, regardless of the credential record's size, whereas full-record storage grows with the credential's size. The evaluated sample record showed an approximately 46.5\% reduction in issuance gas. Across transcripts ranging from one to forty courses, anchored issuance stayed constant at 162,271 gas while the full-record baseline grew linearly, at roughly 45,400 gas per course, to 2,119,053 gas. At a full transcript, the full-record baseline consumes roughly $13\times$ the gas of the anchored design (13.06$\times$). 
+
+\subsection{Privacy and security}
+The full-record baseline writes the student/graduate's name, program, GPA, and dates to a public and permanent ledger. The hash-anchored design avoids placing these plaintext academic attributes on-chain and instead stores a \verb|keccak256| commitment. Any modification to the off-chain record changes the recomputed hash, breaking the match with the on-chain anchor. The random nonce included in the credential record also reduces the risk of guessing the contents from predictable public fields. Both designs bind issuance to an authorized institutional transaction signer, but the anchored design provides this verification without publishing the full academic record. Wallet addresses, timestamps, and credential status remain visible and may still create linkability.
+
+\subsection{Latency, UX, and complexity}
+Both designs issue in a single transaction with no measurable latency difference on a local node, and both incur one block's confirmation on a public network. The issuer must store the record and serve it to authorized verifiers. The verifier must recompute-and-match rather than read fields directly from the chain, in exchange for the gas, scalability, and privacy gains above.
+The anchored design adds modest local file management complexity because the issuer must retain the record, and the verifier must retrieve, standardize and rehash it rather than reading its attributes directly from the blockchain.
+
+Overall, the measured hash-anchored design reduces issuance gas by approximately 46.5\% and avoids storing plaintext academic attributes on the public ledger. Its fixed-size commitment also separates on-chain storage requirements from credential-record size, as our record-size sweep from one to forty courses confirms: on-chain issuance cost stays constant while the full-record baseline grows linearly. Under the evaluated assumptions, hash anchoring provides a preferable cost-privacy trade-off for academic credential verification, at the expense of requiring an external storage and retrieval mechanism.
+
+\section{Security and Privacy Reasoning}
+\label{sec:security}
+CredChain's threat model centers on five realistic attacks, each closed by a specific mechanism and verified by an adversarial test. The issuer allowlist prevents a forged credential from a fake issuer: \texttt{issueCredential} is gated by \texttt{onlyIssuer}, and only the admin can authorize issuers, so an unauthorized key is rejected even with a valid signature. Replay or duplicate issuance is blocked by the \texttt{Status.None} precondition, which rejects any id that has already been issued. Cross-issuer tampering, in which one institution revokes another's credential, is prevented by the \texttt{c.issuer == msg.sender} check in \texttt{revokeCredential}.
+
+Unauthorized retrieval through the contract interface is mitigated by holder-controlled access where the metadata reference is returned only to the holder, the issuing institution, or a verifier explicitly authorized by the holder. This mechanism enforces application level authorization, but it does not render values stored on a public blockchain confidential.
+
+Spoofed verification of a non-existent record is handled by the default \texttt{Status.None} state, so unknown IDs return \texttt{exists = false}. Each is exercised by a corresponding negative test, so that the guarantees are demonstrated rather than assumed.
+
+On privacy, the core mitigation is architectural. No plaintext academic attributes (such as the student's name, degree, GPA, or transcript) are written on-chain. The contract stores a \verb|keccak256| commitment together with issuer and holder addresses, status flags, and timestamps. The commitment provides tamper evidence without directly disclosing the credential contents, although the remaining metadata may create linkability. The random nonce in the off-chain record reduces the feasibility of guessing predictable credential contents from the hash.
+
+\subsection{Limitations and Future Work}
+We note several limitations. The design assumes an honest administrator. A compromised administrator key could authorize a malicious issuer, so a production implementation should use multi-signature control or a governance contract. Authenticity is enforced through a traceable signature attached directly to the credential, which means verification requires consulting the chain. The current prototype depends on local off-chain storage, which we tout as a benefit. Still, it implies that a verifier can detect a missing or modified record but cannot recover an unavailable record. Moreover, a holder authorization cannot prevent a verifier from retaining or redistributing a record once it is disclosed. Institutional issuer and administrator keys should be held in hardware security modules or split with threshold and multi-signature signing behind a timelocked governance contract, so that no single compromised key can authorize a rogue issuer. The off-chain record should be encrypted under keys released only to authorized verifiers, with the on-chain \verb|keccak256| anchor still guaranteeing integrity, and served from content-addressed storage (IPFS, Web3, CIDs) with persistent pinning for availability. Redistribution by an authorized verifier is a fundamental limit of any disclosed bearer record, and is better bounded by short-lived, watermarked presentations or by zero-knowledge selective disclosure, so that the raw record never leaves the holder, than by on-chain controls. Lost holder keys, in turn, call for social-recovery wallets or issuer-mediated re-binding of a credential to a fresh holder address. We leave the implementation and evaluation of these mechanisms to future work. 
+
+\section{Conclusion}
+CredChain demonstrates that hash anchoring can provide blockchain-based tamper evidence and issuer accountability for academic credentials without exposing plaintext academic attributes on a public ledger. By committing a \verb|keccak256| anchor and minimal status metadata on-chain, the evaluated design reduces issuance gas by approximately 46.5\% relative to the full-record baseline, while keeping the credential record off-chain. Its fixed-size commitment also separates on-chain storage requirements from credential-record size, which our record-size sweep from one to forty courses confirms. Issuer allow-listing and transaction signatures bind each on-chain anchor to an authorized institutional account, while revocation and verification remain publicly auditable. Under the evaluated assumptions, hash anchoring offers a preferable cost-privacy trade-off for academic credential verification. Future work includes replacing local storage with encrypted IPFS-backed storage, evaluating retrieval performance and availability, and integrating decentralized identifiers, controlled key distribution, and multisignature accreditation.
+
+\bibliographystyle{IEEEtran}
+\bibliography{Bibliography}
+
+\end{document}
